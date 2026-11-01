@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+# Optional paid hosting template. Review docs/HOSTING.md before applying in your own workspace.
+previews:
+  generation: "off"
+services:
+  - type: web
+    name: hatch-sound-room
+    runtime: docker
+    plan: 0.5c-512mb
+    region: oregon
+    numInstances: 1
+    dockerfilePath: ./cloud/Dockerfile
+    dockerContext: .
+    autoDeployTrigger: "off"
+    healthCheckPath: /healthz
+    disk:
+      name: sound-room-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data/hatch
+      - key: OWNER_NAME
+        value: Owner
+      - key: PUBLIC_ORIGIN
+        sync: false
+      - key: HATCH_EMAIL
+        sync: false
+      - key: HATCH_PASSWORD
+        sync: false
+      - key: API_TOKEN
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true

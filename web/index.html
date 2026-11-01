@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#1434cb" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Sound Room" />
+    <meta name="description" content="A personal collection of sounds, light scenes, and one-time alarms for your Hatch." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preload" href="/node_modules/@fontsource-variable/inter-tight/files/inter-tight-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <title>Sound Room — Hatch</title>
+    <style>
+      html { background: #1434cb; }
+      body { margin: 0; }
+      .boot-shell { min-height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 24px; box-sizing: border-box; background: #1434cb; color: #f6f5f1; font: 16px/1.4 "Inter Tight Variable", "Helvetica Neue", Helvetica, Arial, sans-serif; text-align: center; }
+      .boot-shell p { margin: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <main class="boot-shell" role="status" aria-live="polite">
+        <svg width="26" height="23" viewBox="0 0 36 30" fill="none" aria-hidden="true"><path d="M4 24V17C4 9.3 10.3 3 18 3S32 9.3 32 17V24M11 24V17a7 7 0 0 1 14 0v7M4 24h28M18 24v-7" stroke="currentColor" stroke-width="2.2" /></svg>
+        <p>Opening Your Sound Room…</p>
+        <noscript><p>Enable JavaScript to open your room.</p></noscript>
+      </main>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

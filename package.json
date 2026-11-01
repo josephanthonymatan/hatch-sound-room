@@ -1,0 +1,19 @@
+{
+  "name": "hatch-sound-room",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.5"
+  },
+  "scripts": {
+    "setup": "npm ci --prefix cloud --ignore-scripts && npm ci --prefix web --ignore-scripts",
+    "build": "npm run build --prefix web",
+    "test": "node --test web/test/*.test.mjs cloud/test/*.test.mjs",
+    "preview": "npm run preview --prefix cloud",
+    "start": "node --env-file=.env cloud/server.mjs",
+    "start:hosted": "node cloud/server.mjs",
+    "check:public": "node scripts/check-public.mjs"
+  }
+}

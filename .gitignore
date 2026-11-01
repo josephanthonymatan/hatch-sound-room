@@ -1,0 +1,17 @@
+node_modules/
+**/node_modules/
+.env
+.env.*
+!.env.example
+private/
+data/
+cloud/data/
+web/dist/
+*.log
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.pem
+*.key
+.DS_Store

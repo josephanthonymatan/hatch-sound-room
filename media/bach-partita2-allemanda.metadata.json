@@ -1,0 +1,21 @@
+{
+  "title": "Bach: Violin Partita No. 2 in D minor, BWV 1004 \u2014 Allemanda",
+  "composer": "Johann Sebastian Bach",
+  "performer": "Not identified by source",
+  "recorded": "2013-04-18",
+  "source_page": "https://archive.org/details/BachAllemanda_18042013",
+  "commons_page": "https://commons.wikimedia.org/wiki/File:Bach_Partita_2_-_Allemanda_-_18-04-2013.ogg",
+  "source_file_url": "https://archive.org/download/BachAllemanda_18042013/Mixes/Bach_2.mp3",
+  "license": "CC0-1.0 (as declared by source uploader and Wikimedia Commons)",
+  "license_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+  "source_sha256": "4b4c65f317e05961def11ac0614dbcdc6583492ba68f2103f92bcce61bcc16ab",
+  "metadata_note": "Title and Commons structured data identify Partita No. 2 (BWV 1004); the Archive description says 1st Partita, an apparent catalog inconsistency. Performer is not named.",
+  "full_preparation": {
+    "file": "bach-partita2-allemanda-full.mp3",
+    "encoding": "MP3, mono, 44.1 kHz, 128 kbps CBR",
+    "filters": "loudnorm=I=-24:TP=-6:LRA=7,afade=t=in:d=0.5,afade=t=out:st=178.5:d=3",
+    "sha256": "516f85d0a718e8a95f68200c43ecec62762b86c119b37ea445b88abc071519f8",
+    "duration_seconds": 181.5,
+    "bytes": 2905277
+  }
+}

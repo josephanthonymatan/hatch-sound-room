@@ -1,0 +1,15 @@
+.git
+**/.git
+**/node_modules
+private
+**/private
+**/.env
+**/.env.*
+**/.dev.vars
+**/.dev.vars.*
+**/*.log
+**/.DS_Store
+**/data
+**/.openai
+**/.wrangler
+web/dist
