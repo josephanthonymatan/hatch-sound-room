@@ -30,6 +30,8 @@ Open **http://127.0.0.1:4183**, then sign in with:
 
 You're ready when the collection and Light screen appear. Try a built-in sound, paste a palette in **Light → More Options**, and create an alarm. Every command goes to a fake device, with disposable data; the preview uses no Hatch credentials and exits after 30 minutes. Press Ctrl-C to stop it.
 
+Try **Light → More Options → Choose Photo** to turn a photograph into a light palette. Review the photo and its textured color study, choose up to 3, 5 or 7 colors, then tap **Use Photo Colors**. Character preserves distinctive accents; Dominant favors the largest color areas. Edit or save the resulting palette before playing. Photos are processed on your device and never uploaded; saved presets contain colors, not images.
+
 ## Connect your own Hatch
 
 Each owner runs their own instance with their own account and storage. Sound Room is a single-owner controller, not a shared service for strangers to enter account credentials.

@@ -5,6 +5,7 @@ import { Copy, LightbulbOff, Pause, Play, Plus, Save, Sparkles, Square, Trash2 }
 import { lightRecipes, maxPaletteColors, parsePalette, previewFrame, validRecipe, type LightBlend, type LightEffects, type LightRecipe } from "./light-recipes";
 import type { RoomState, Scene } from "./types";
 import type { DeviceIntent } from "./room-state";
+import { PhotoPalettePicker } from "./photo-palette";
 
 const storageKey = "sound-room-light-presets-v1";
 function readPresets(): LightRecipe[] {
@@ -102,12 +103,15 @@ export function LightStudio({ scenes, light, disabled, onSolid, onDirty, onSeque
     editor.current?.focus({preventScroll:true});
     editor.current?.scrollIntoView({behavior:reduced?"instant":"smooth",block:"start"});
   }
+  function usePalette(colors: string[]) {
+    const stops = colors.length === 1 ? [colors[0], colors[0]] : colors;
+    edit({ motion: colors.length === 1 ? "steady" : steady ? "flow" : recipe.motion, stops: stops.map((color,i)=>({color,seconds:recipe.stops[i]?.seconds ?? 6})) });
+    setRunning(false); elapsed.current=0; setPaletteError("");
+    setMessage(`${colors.length} ${colors.length === 1 ? "color" : "colors"} added. Save your preset or play it on Hatch.`);
+  }
   function importPalette() {
     try {
-      const colors = parsePalette(paletteText);
-      edit({ motion: steady ? "flow" : recipe.motion, stops: colors.map((color,i)=>({color,seconds:recipe.stops[i]?.seconds ?? 6})) });
-      setRunning(false); elapsed.current=0; setPaletteError("");
-      setMessage(`${colors.length} colors added. Save your preset or play it on Hatch.`);
+      usePalette(parsePalette(paletteText));
     } catch (error) {
       haptic("error"); setPaletteError((error as Error).message); paletteInput.current?.focus();
     }
@@ -180,6 +184,7 @@ export function LightStudio({ scenes, light, disabled, onSolid, onDirty, onSeque
           <p className="hint">Hatch shows about one frame every 2 seconds.</p>
         </div>}
         {optionsOpen && <div id="light-options" className="light-options">
+          <PhotoPalettePicker onUse={colors=>{usePalette(colors);haptic("success");editor.current?.focus({preventScroll:true});editor.current?.scrollIntoView({behavior:reduced?"instant":"smooth",block:"start"});}}/>
           <form className="palette-import" onSubmit={e=>{e.preventDefault();importPalette();}}>
             <label className="recipe-field" htmlFor="palette-colors">Paste Hex Colors<textarea ref={paletteInput} id="palette-colors" name="palette-colors" autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck={false} rows={4} placeholder={"#334217, #2E2D1C, #9C8734…"} value={paletteText} aria-invalid={Boolean(paletteError)} aria-describedby={`palette-help${paletteError ? " palette-error" : ""}`} onChange={e=>{setPaletteText(e.target.value);setPaletteError("");}}/></label>
             <p id="palette-help" className="hint">2–{maxPaletteColors} colors. Commas, tabs or new lines. Replaces the palette; Solid becomes Flow.</p>

@@ -8,6 +8,7 @@ The browser talks to one authenticated Node service. That service owns a SQLite 
 | --- | --- | --- |
 | Device/model support | [Device adapter](#device-adapter) | Fake transport tests plus separately recorded physical observations |
 | Motion or palette math | [Light effects](#light-effects) | Browser/cloud frame parity and cancellation tests |
+| Photo extraction or selection | [Photo palettes](#photo-palettes) | Accent/neutral/transparency fixtures plus WebKit/Chromium import, cancellation and privacy checks |
 | Alarm timing or recurrence | [Alarms](#alarms) | DST, restart, claim and dispatch-race tests |
 | Uploads and recordings | [Storage and media](#storage-and-media) | Real ffmpeg normalization and persistence fixtures |
 | Browser UI | `web/src/components/` and `web/src/globals.css` | Strict build, fake-preview browser checks, phone widths and both color schemes |
@@ -24,6 +25,16 @@ Add synthetic API/shadow fixtures before generalizing another model. Keep physic
 `web/src/components/light-recipes.ts` defines the editor schema and preview math. `cloud/light-sequence.mjs` validates recipes and samples server-owned frames; `cloud/test/light-effects.test.mjs` checks math parity.
 
 The scheduler uses independent nightlight fields, preserving audio and volume. Desired/reported ownership and cancellation guards run inside the MQTT dispatch queue. Holds, favorite switches, manual light edits, alarms and disconnects must defeat stale frames. Preserve RGBW channels and the device's separate stopped/active lighting pathways.
+
+## Photo palettes
+
+`web/src/components/image-palette-loader.ts` decodes the selected image locally and transfers a sample of at most 256 × 256 pixels to `image-palette.worker.ts`. It releases object URLs and workers after completion, failure, replacement or cancellation. The 25 MB file limit and bounded sample keep analysis small. Browser decoding determines format support; unsupported HEIC files offer a JPEG/PNG/WebP fallback. Canvas converts wide-gamut images to sRGB for the existing Hatch hex-color contract.
+
+`image-palette.ts` uses Color Thief 3.5.0's OKLCH quantizer, then merges neighbors and measures distances in OKLab. A separate chromatic pass supplies small accents; coverage is recounted against the original sample. Character reserves a distinct color family before filling the remaining tonal range; Dominant prioritizes coverage. Both remove near-duplicates and order a short closed loop. Palette size is a maximum: simple images produce fewer colors, including a single solid color. This is a color heuristic, not object recognition or a promise of physical lamp fidelity.
+
+`photo-palette.tsx` owns the transient photo and color-study preview. Applying changes the existing recipe through `light-studio.tsx`; it preserves brightness, pace, effects and per-position timing. Only hex colors enter saved presets or the explicit Play action. Images and metadata stay out of storage and HTTP requests.
+
+Validate with `node --test web/test/image-palette.test.mjs`, the web build, and `node web/scripts/photo-palette-check.mjs` against the fake preview. The browser check covers Chromium/WebKit, narrow/light/dark layouts, cancellation, error recovery, local persistence and absence of photo network writes.
 
 ## Alarms
 

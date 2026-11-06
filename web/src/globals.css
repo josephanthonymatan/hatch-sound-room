@@ -2703,6 +2703,32 @@ dialog.sheet::backdrop {
 .light-options { display: grid; gap: 18px; border-top: 1px solid var(--line); padding-top: 18px; }
 .palette-import { display: grid; gap: 10px; min-width: 0; }
 .palette-import .key { justify-self: start; }
+.photo-palette { display: grid; gap: 12px; min-width: 0; padding-bottom: 22px; border-bottom: 1px solid var(--line); color: var(--ink); }
+.photo-palette-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.photo-palette h3 { margin: 0; color: var(--ink); font-size: 20px; font-weight: 550; letter-spacing: -.025em; }
+.photo-palette > .hint { text-align: left; }
+.photo-clear { flex-shrink: 0; width: 44px; height: 44px; padding: 0; }
+.photo-choose { position: relative; justify-self: start; overflow: hidden; cursor: pointer; }
+.photo-choose input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.photo-choose:focus-within { outline: 2px solid var(--ink); outline-offset: 4px; }
+.photo-palette [role="status"]:empty { display: none; }
+.photo-diptych { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; margin-block: 8px; }
+.photo-diptych figure { min-width: 0; margin: 0; }
+.photo-mount, .photo-study { aspect-ratio: 4 / 5; overflow: hidden; box-shadow: 0 2px 4px #0002; }
+.photo-mount { display: grid; place-items: center; padding: 8px; background: var(--paper); }
+.photo-mount img { display: block; width: 100%; height: 100%; object-fit: contain; min-height: 0; }
+.photo-study { position: relative; display: flex; flex-direction: column; gap: 5px; padding: 12px 9px; isolation: isolate; }
+.photo-study > span { min-height: 6px; flex-basis: 0; opacity: .95; filter: blur(1.4px); border-radius: 5% 2% 4% 1%; }
+.photo-study::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .14; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23808080' filter='url(%23n)' d='M0 0h160v160H0z'/%3E%3C/svg%3E"); }
+.photo-diptych figcaption { margin-top: 10px; color: var(--ink-2); font-size: 12px; }
+.photo-count { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--ink); font-size: 14px; }
+.photo-count > div { display: flex; gap: 8px; }
+.photo-count .key { min-width: 44px; padding-inline: 12px; font-variant-numeric: tabular-nums; }
+.photo-count .key[aria-pressed="true"] { color: var(--paper); background: var(--ink); }
+.photo-swatches { display: flex; flex-wrap: wrap; gap: 12px; margin: 4px 0; padding: 0; color: var(--ink); list-style: none; }
+.photo-swatches li { display: grid; gap: 6px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.photo-swatches li > span:first-child { height: 32px; border-radius: 5px; box-shadow: inset 0 0 0 1px #0002; }
+.photo-palette > .key { justify-self: start; }
 .light-options .text-key { justify-self: start; }
 .recipe-timings { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
 .recipe-timings li { display: grid; grid-template-columns: 20px minmax(0,1fr) 44px; gap: 12px; align-items: center; }
