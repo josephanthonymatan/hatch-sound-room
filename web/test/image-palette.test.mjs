@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzeImage, selectImagePalette } from '../src/components/image-palette.ts';
+import { rgbToOklch } from 'colorthief/internals';
 
 function image(pixel, width = 100, height = 100) {
   const data = new Uint8ClampedArray(width * height * 4);
@@ -8,10 +9,14 @@ function image(pixel, width = 100, height = 100) {
   return [data, width, height];
 }
 const rgb = hex => hex.slice(1).match(/../g).map(value => parseInt(value, 16));
+const candidate = (hex, share) => {
+  const { l, c, h } = rgbToOklch(...rgb(hex));
+  return { hex, share, lab: [l, c * Math.cos(h * Math.PI / 180), c * Math.sin(h * Math.PI / 180)] };
+};
 
 test('character preserves a small red subject and blue sky in a largely beige photograph', () => {
   const input = image((x, y, i) => {
-    const base = y < 3 ? [175, 35, 40] : y < 8 ? [65, 132, 184] : [193 + y / 6, 177 + y / 7, 151 + y / 8];
+    const base = y < 3 ? [255, 82, 101] : y < 8 ? [87, 154, 195] : [225 + y / 12, 208 + y / 13, 180 + y / 14];
     return [...base.map(value => value + (i * 17 % 9) - 4), 255];
   });
   const analysis = analyzeImage(...input), colors = selectImagePalette(analysis, 5);
@@ -22,8 +27,8 @@ test('character preserves a small red subject and blue sky in a largely beige ph
   assert.deepEqual(analyzeImage(...input), analysis, 'Extraction is deterministic');
 });
 
-test('solid, white and monochrome images stay honest rather than fabricating swatches', () => {
-  for (const value of [0, 128, 255]) {
+test('bright solid and monochrome images retain their tones without fabricating swatches', () => {
+  for (const value of [160, 200, 255]) {
     const colors = selectImagePalette(analyzeImage(...image(() => [value, value, value, 255])), 7);
     assert.equal(colors.length, 1);
     assert.deepEqual(rgb(colors[0].hex), [value, value, value]);
@@ -31,43 +36,62 @@ test('solid, white and monochrome images stay honest rather than fabricating swa
   }
   const colors = selectImagePalette(analyzeImage(...image((x, y) => [y * 2.55, y * 2.55, y * 2.55, 255])), 5);
   assert.ok(colors.length >= 3);
+  assert.ok(colors.every(color => rgb(color.hex).every(value => value > 128)));
   assert.ok(colors.every(color => Math.max(...rgb(color.hex)) - Math.min(...rgb(color.hex)) < 12));
 });
 
 test('transparent pixels never become the palette, including hidden RGB values', () => {
-  const colors = analyzeImage(...image((x, y) => y < 95 ? [255, 0, 0, 0] : [20, 100, 60, 255]));
+  const colors = analyzeImage(...image((x, y) => y < 95 ? [255, 0, 0, 0] : [80, 210, 160, 255]));
   assert.equal(colors.length, 1);
-  assert.equal(colors[0].hex, '#14643c');
+  assert.equal(colors[0].hex, '#50d2a0');
   assert.throws(() => analyzeImage(...image(() => [255, 20, 0, 0])), /transparent/);
   assert.throws(() => analyzeImage(new Uint8ClampedArray(4), 1000, 1000), /sampled/);
 });
 
 test('near duplicates merge, tiny noise is rejected, and palette size is a maximum', () => {
-  const colors = analyzeImage(...image((x, y, i) => i < 4 ? [0, 255, 0, 255] : [180 + i % 3, 160, 140, 255]));
+  const colors = analyzeImage(...image((x, y, i) => i < 4 ? [0, 255, 0, 255] : [230 + i % 3, 215, 190, 255]));
   assert.equal(selectImagePalette(colors, 7).length, 1);
 });
 
 test('character protects distinct accents that population-only selection omits', () => {
   const candidates = [
-    {hex:'#999999',share:.48,lab:[.65,0,0]},
-    {hex:'#555555',share:.24,lab:[.42,0,0]},
-    {hex:'#dddddd',share:.25,lab:[.90,0,0]},
-    {hex:'#cf3542',share:.03,lab:[.6,.21,.08]},
+    candidate('#aaaaaa', .48), candidate('#959595', .24),
+    candidate('#ededed', .25), candidate('#ff5265', .03),
   ];
-  assert.ok(selectImagePalette(candidates, 3, 'character').some(c => c.hex === '#cf3542'));
-  assert.ok(!selectImagePalette(candidates, 3, 'dominant').some(c => c.hex === '#cf3542'));
+  assert.ok(selectImagePalette(candidates, 3, 'character').some(c => c.hex === '#ff5265'));
+  assert.ok(!selectImagePalette(candidates, 3, 'dominant').some(c => c.hex === '#ff5265'));
   for (const count of [3,5,7]) assert.ok(selectImagePalette(candidates, count).length <= count);
 });
 
-test('a small isolated color family survives many shades of foliage and sky', () => {
+test('a small bright color family survives many shades of foliage and sky', () => {
   const candidates = [
-    {hex:'#455639',share:.25,lab:[.43,-.034,.037]},
-    {hex:'#233817',share:.20,lab:[.31,-.043,.043]},
-    {hex:'#3f681f',share:.18,lab:[.47,-.078,.081]},
-    {hex:'#67befc',share:.17,lab:[.77,-.058,-.108]},
-    {hex:'#62a7f9',share:.14,lab:[.72,-.039,-.134]},
-    {hex:'#ded5cb',share:.054,lab:[.87,.006,.016]},
-    {hex:'#992a3d',share:.006,lab:[.46,.141,.039]},
+    candidate('#6caa51', .25), candidate('#90b075', .20), candidate('#aaca91', .18),
+    candidate('#67befc', .17), candidate('#62a7f9', .14), candidate('#ded5cb', .054),
+    candidate('#ff5265', .006),
   ];
-  assert.ok(selectImagePalette(candidates, 5).some(color => color.hex === '#992a3d'));
+  assert.ok(selectImagePalette(candidates, 5).some(color => color.hex === '#ff5265'));
+});
+
+const excluded = ['#000000','#101820','#404040','#808080','#000080','#202060','#234f80','#8b4513','#a0522d','#a52a2a','#b8860b','#cd853f','#c19a6b','#bc8f8f','#d2b48c','#deb887'];
+test('black, navy, shadows and medium browns are excluded in both modes at every size', () => {
+  for (const hex of excluded) assert.throws(() => analyzeImage(...image(() => [...rgb(hex),255])), /No bright colors/);
+  const mixed = [...excluded.map(hex => candidate(hex, .95 / excluded.length)), candidate('#ff8800', .05)];
+  for (const mode of ['character','dominant']) for (const count of [3,5,7]) {
+    assert.deepEqual(selectImagePalette(mixed,count,mode).map(c => c.hex), ['#ff8800']);
+  }
+});
+
+test('a tiny bright subject survives a photograph that is almost entirely shadow', () => {
+  const colors = analyzeImage(...image((x,y,i) => i < 10 ? [255,136,0,255] : [...rgb(excluded[i % excluded.length]),255]));
+  assert.equal(colors.length,1);
+  assert.equal(colors[0].hex,'#ff8800');
+  assert.ok(Math.abs(colors[0].share-1)<.00001);
+});
+
+test('bright oranges, reds, blues, greens, pastels and white stay available', () => {
+  for (const hex of ['#ff8800','#ff0000','#ffbf00','#579ac3','#67befc','#50d2a0','#ff5265','#e0c7a1','#ffffff']) {
+    const colors=analyzeImage(...image(() => [...rgb(hex),255]));
+    assert.equal(colors[0].hex,hex);
+    assert.equal(selectImagePalette(colors)[0].hex,hex);
+  }
 });

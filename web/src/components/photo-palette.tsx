@@ -32,7 +32,7 @@ export function PhotoPalettePicker({ onUse }: { onUse: (colors: string[]) => voi
     <div className="photo-palette-heading"><h3 id="photo-palette-title">Colors from a Photo</h3>
       {(photo || busy) && <button type="button" className="key photo-clear" aria-label={busy ? "Cancel photo" : "Remove photo"} onClick={clear}><X size={16} aria-hidden="true"/></button>}
     </div>
-    <p id="photo-privacy" className="hint">A little of its atmosphere, for your light. Photos stay on this device.</p>
+    <p id="photo-privacy" className="hint">Bright colors for your light. Shadows and browns stay out. Photos stay on this device.</p>
     <label className="key photo-choose"><ImagePlus size={16} aria-hidden="true"/>{photo ? "Choose Another Photo" : busy ? "Choose a Different Photo" : "Choose Photo"}
       <input ref={input} type="file" name="palette-photo" accept="image/*" aria-describedby={`photo-privacy${error ? " photo-error" : ""}`} aria-invalid={Boolean(error)} onChange={e => {
         const file = e.target.files?.[0]; e.target.value = ""; if (file) void choose(file);
@@ -47,7 +47,7 @@ export function PhotoPalettePicker({ onUse }: { onUse: (colors: string[]) => voi
           {colors.map((color, index) => <span key={color.hex} style={{ background: color.hex, flexGrow: Math.sqrt(color.share), transform: `rotate(${index % 2 ? -.7 : .6}deg)` }}/>)}</div><figcaption>Its color story</figcaption></figure>
       </div>
       <div className="light-mode" role="group" aria-label="Color selection">{([ ["character", "Character"], ["dominant", "Dominant"] ] as const).map(([value, label]) => <button type="button" key={value} aria-pressed={style === value} onClick={() => setStyle(value)}>{label}</button>)}</div>
-      <p className="hint">{style === "character" ? "Keeps distinctive accents alongside the main tones." : "Favors the colors that fill most of the photo."}</p>
+      <p className="hint">{style === "character" ? "Keeps distinctive accents alongside the main bright tones." : "Favors the largest areas of bright color."}</p>
       <div className="photo-count"><span id="photo-count-label">Palette size</span><div role="group" aria-labelledby="photo-count-label">{[3, 5, 7].map(value => <button type="button" key={value} className="key" aria-label={`Up to ${value} colors`} aria-pressed={count === value} onClick={() => setCount(value)}>{value}</button>)}</div></div>
       <ol className="photo-swatches" aria-label="Extracted colors">{colors.map(color => <li key={color.hex}><span style={{ background: color.hex }} aria-hidden="true"/><span translate="no">{color.hex.toUpperCase()}</span></li>)}</ol>
       <button type="button" className="key key-ink" onClick={() => { onUse(colors.map(color => color.hex)); setPhoto(null); }}>Use Photo Colors</button>

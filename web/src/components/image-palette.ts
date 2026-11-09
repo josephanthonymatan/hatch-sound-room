@@ -10,6 +10,13 @@ function lab(r: number, g: number, b: number): PaletteColor["lab"] {
   return [l, c * Math.cos(h * Math.PI / 180), c * Math.sin(h * Math.PI / 180)];
 }
 
+// Photo palettes are light sources: retain bright hues/pastels, exclude shadows and muted browns.
+function usableLight([l, a, b]: PaletteColor["lab"]): boolean {
+  const c = Math.hypot(a, b), hue = (Math.atan2(b, a) * 180 / Math.PI + 360) % 360;
+  return l >= .6 && !(hue >= 15 && hue <= 100 && c >= .025 && c < .16 && l < .82);
+}
+const noBrightColors = "No bright colors found. Choose a photo with brighter colors.";
+
 /** Bounded sRGB samples only. Runs in a worker; the same function is testable without a browser. */
 export function analyzeImage(data: Uint8ClampedArray, width: number, height: number): PaletteColor[] {
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || width * height > 256 * 256 || data.length !== width * height * 4) {
@@ -17,15 +24,19 @@ export function analyzeImage(data: Uint8ClampedArray, width: number, height: num
   }
   const visible: number[] = [], accents: number[] = [];
   const pixels: PaletteColor["lab"][] = [];
+  let hasVisiblePixels = false;
   for (let i = 0; i < data.length; i += 4) {
     if (data[i + 3] < 128) continue;
+    hasVisiblePixels = true;
     const rgb = [data[i], data[i + 1], data[i + 2]];
     const point = lab(rgb[0], rgb[1], rgb[2]);
+    if (!usableLight(point)) continue;
     pixels.push(point);
     visible.push(...rgb, 255);
     if (Math.hypot(point[1], point[2]) >= .07) accents.push(...rgb, 255);
   }
-  if (!pixels.length) throw new Error("This image is transparent. Choose a photo with visible colors.");
+  if (!hasVisiblePixels) throw new Error("This image is transparent. Choose a photo with visible colors.");
+  if (!pixels.length) throw new Error(noBrightColors);
   const quantizer = new MmcqQuantizer();
   const extract = (values: number[], count: number) => extractPalette(new Uint8ClampedArray(values), values.length / 4, 1,
     validateOptions({ colorCount: count, quality: 1, colorSpace: "oklch", ignoreWhite: false }), quantizer) ?? [];
@@ -36,7 +47,7 @@ export function analyzeImage(data: Uint8ClampedArray, width: number, height: num
     const next: PaletteColor = { hex: color.hex(), share: 0, lab: lab(...color.array()) };
     if (candidates.every(other => distance(next, other) >= .045)) candidates.push(next);
   }
-  // Recount against the original sample so accent-pass populations never masquerade as image coverage.
+  // Recount against the eligible pixels; shadows cannot drown out a small bright subject.
   for (const point of pixels) {
     let nearest = 0, best = Infinity;
     candidates.forEach((color, index) => {
@@ -45,17 +56,21 @@ export function analyzeImage(data: Uint8ClampedArray, width: number, height: num
     });
     candidates[nearest].share += 1 / pixels.length;
   }
-  return candidates.filter(color => color.share >= .005).sort((a, b) => b.share - a.share);
+  // Quantization can drift across a cutoff. Enforce the same rule on the actual output colors.
+  const colors = candidates.filter(color => color.share >= .005 && usableLight(color.lab)).sort((a, b) => b.share - a.share);
+  if (!colors.length) throw new Error(noBrightColors);
+  return colors;
 }
 
 export function selectImagePalette(candidates: PaletteColor[], count = 5, style: PaletteStyle = "character"): PaletteColor[] {
   count = Math.max(1, Math.min(7, Math.round(count) || 5));
-  const available = [...candidates].sort((a, b) => b.share - a.share);
+  const eligible = candidates.filter(color => usableLight(color.lab));
+  const available = [...eligible].sort((a, b) => b.share - a.share);
   const selected = available.splice(0, 1);
   if (!selected.length) return [];
   if (style === "character" && count > 1) {
     // Reserve a distinct color family, not another saturated shade of the dominant sky or foliage.
-    const common = candidates.filter(color => color.share >= .04);
+    const common = eligible.filter(color => color.share >= .04);
     if (!common.length) common.push(selected[0]);
     const isolation = (color: PaletteColor) => Math.min(1, ...common.filter(other => other !== color).map(other =>
       Math.hypot(color.lab[1] - other.lab[1], color.lab[2] - other.lab[2])));

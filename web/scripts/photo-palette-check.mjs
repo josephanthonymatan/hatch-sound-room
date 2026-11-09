@@ -1,6 +1,7 @@
 // Disposable preview only. Images are generated fixtures; no owner photo or Hatch connection.
 import { chromium, webkit, expect } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
+import { rgbToOklch } from 'colorthief/internals';
 const base = 'http://127.0.0.1:4183';
 const evidence = new URL('../../private/photo-palette-qa/', import.meta.url).pathname;
 await mkdir(evidence, { recursive: true });
@@ -12,7 +13,8 @@ for (const engine of [chromium, webkit]) {
   page.on('pageerror', error => errors.push(error.message));
   page.on('request', request => { if (/^https?:/.test(request.url()) && (request.method() !== 'GET' || !request.url().startsWith(base))) outgoing.push(request.url()); });
   try {
-    await context.request.post(base + '/auth/login', { headers: { Origin: base }, data: { email: 'preview@example.test', password: 'preview-only' } });
+    const login = await context.request.post(base + '/auth/login', { headers: { Origin: base }, data: { email: 'preview@example.test', password: 'preview-only' } });
+    expect(login.status(), 'Restart the disposable preview if its sign-in limit was reached').toBe(200);
     await page.goto(base + '/?tab=lights');
     await page.getByRole('button', { name: 'More Options', exact: true }).click();
     const before = await page.locator('.light-palette input').evaluateAll(nodes => nodes.map(n => n.value));
@@ -20,12 +22,17 @@ for (const engine of [chromium, webkit]) {
       const canvas = document.createElement('canvas'); canvas.width = 800; canvas.height = 1000;
       const ctx = canvas.getContext('2d');
       if (kind === 'white') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,800,1000); }
+      if (kind === 'dark') {
+        for (const [i,color] of ['#000000','#000080','#8b4513','#c19a6b'].entries()) {
+          ctx.fillStyle = color; ctx.fillRect(i*200,0,200,1000);
+        }
+      }
       if (kind === 'photo') {
         const wall = ctx.createLinearGradient(0,0,800,1000); wall.addColorStop(0,'#e0c7a1'); wall.addColorStop(1,'#a99578');
         ctx.fillStyle = wall; ctx.fillRect(0,0,800,1000);
         ctx.fillStyle = '#579ac3'; ctx.fillRect(0,0,800,140);
         ctx.fillStyle = '#50483e'; ctx.fillRect(570,340,180,660);
-        ctx.fillStyle = '#b72f40'; ctx.fillRect(220,590,120,200);
+        ctx.fillStyle = '#ff5265'; ctx.fillRect(220,590,120,200);
         ctx.fillStyle = '#ded3be'; ctx.fillRect(0,900,800,100);
       }
       return canvas.toDataURL('image/png').split(',')[1];
@@ -41,6 +48,11 @@ for (const engine of [chromium, webkit]) {
     for (const mode of ['Dominant', 'Character']) {
       await page.getByRole('button', { name: mode, exact: true }).click();
       await expect(page.getByRole('button', { name: mode, exact: true })).toHaveAttribute('aria-pressed','true');
+      for (const hex of await page.locator('.photo-swatches li > span:last-child').allTextContents()) {
+        const {l,c,h} = rgbToOklch(...hex.slice(1).match(/../g).map(v => parseInt(v,16)));
+        expect(l, `${mode} should exclude shadows: ${hex}`).toBeGreaterThanOrEqual(.6);
+        expect(h >= 15 && h <= 100 && c >= .025 && c < .16 && l < .82, `${mode} should exclude browns: ${hex}`).toBe(false);
+      }
     }
     await page.getByRole('button', { name:'Up to 3 colors' }).click(); await expect(page.locator('.photo-swatches li')).toHaveCount(3);
     await page.getByRole('button', { name:'Up to 5 colors' }).click();
@@ -65,6 +77,11 @@ for (const engine of [chromium, webkit]) {
     await page.reload(); await page.getByRole('button', {name:'Photo study',exact:true}).click();
     expect(await page.locator('.light-palette input').evaluateAll(nodes => nodes.map(n => n.value))).toEqual(colors.map(c => c.toLowerCase()));
     await page.getByRole('button', {name:'More Options',exact:true}).click();
+    await upload.setInputFiles({name:'dark.png',mimeType:'image/png',buffer:await makeImage('dark')});
+    await expect(page.getByRole('alert')).toContainText('No bright colors found');
+    await expect(use).toHaveCount(0);
+    expect(await page.locator('.light-palette input').evaluateAll(nodes => nodes.map(n => n.value))).toEqual(colors.map(c => c.toLowerCase()));
+    await page.locator('.photo-palette').screenshot({path:`${evidence}${engine.name()}-dark-photo-error.png`});
     await upload.setInputFiles({name:'broken.heic',mimeType:'image/heic',buffer:Buffer.from('not an image')});
     await expect(page.getByRole('alert')).toContainText('could not open');
     await expect(use).toHaveCount(0);
@@ -94,6 +111,6 @@ for (const engine of [chromium, webkit]) {
     await page.getByRole('button', {name:'Remove photo'}).click();
     expect(outgoing).toEqual([]); // File, pixel data, and choosing colors never issue network writes.
     expect(errors).toEqual([]);
-    console.log(`PASS ${engine.name()}: selection, preview, accents, size, apply, single-color, invalid/oversized/transparent, cancel/retry/remove, focus, local save/reload, no photo writes or external requests, responsive light/dark screenshots.`);
+    console.log(`PASS ${engine.name()}: bright-only Character/Dominant, dark-photo rejection, selection, preview, size, apply, single-color, invalid/oversized/transparent, cancel/retry/remove, focus, local save/reload, no photo writes or external requests, responsive light/dark screenshots.`);
   } finally { await browser.close(); }
 }
