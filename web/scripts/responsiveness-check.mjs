@@ -68,14 +68,14 @@ try {
   await page.getByRole('button', { name: /^Play Pink Noise/ }).click(); await play.started;
   await page.getByRole('link', { name: 'Room', exact: true }).click();
   await expect(page.locator('#now-title')).toHaveText('Pink Noise');
-  await expect(page.locator('.sleeve-kicker')).toHaveText('Sending…');
+  await expect(page.locator('.record-player [role="status"]')).toHaveText('Sending…');
   await expect(page.locator('.record-player')).not.toHaveClass(/is-spinning/);
   await page.screenshot({ path: evidence + 'sound-sending.png', fullPage: true });
   const report = await hold('/api/hatch/state');
   play.release(); await report.started;
-  await expect(page.locator('.sleeve-kicker')).toHaveText('Confirming…');
+  await expect(page.locator('.record-player [role="status"]')).toHaveText('Confirming…');
   await expect(page.getByRole('button', { name: /Turn Off Hatch/ })).toBeEnabled();
-  report.release(); await expect(page.locator('.sleeve-kicker')).not.toHaveText(/Sending|Confirming/); await play.remove(); await report.remove();
+  report.release(); await expect(page.locator('.record-player [role="status"]')).not.toHaveText(/Sending|Confirming/); await play.remove(); await report.remove();
   console.log('PASS immediate playback intent and acceptance boundary');
   // Volume target survives acceptance while its report is pending; rejected edit rolls back.
   const original = Number(await page.locator('#room-volume').inputValue());

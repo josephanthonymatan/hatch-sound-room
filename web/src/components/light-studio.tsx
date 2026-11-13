@@ -1,7 +1,8 @@
 import { DurationEntry, EntryRange } from "./data-entry";
 import { haptic } from "./haptics";
 import { useEffect, useRef, useState } from "react";
-import { Copy, LightbulbOff, Pause, Play, Plus, Save, Sparkles, Square, Trash2 } from "lucide-react";
+import { Copy, LightbulbOff, Pause, Play, Plus, Save, Sparkles, Square, Sun, Trash2 } from "lucide-react";
+import { Fader } from "./fader";
 import { lightRecipes, maxPaletteColors, parsePalette, previewFrame, validRecipe, type LightBlend, type LightEffects, type LightRecipe } from "./light-recipes";
 import type { RoomState, Scene } from "./types";
 import type { DeviceIntent } from "./room-state";
@@ -49,6 +50,7 @@ export function LightStudio({ scenes, light, disabled, onSolid, onDirty, onSeque
   const elapsed = useRef(0);
   const savedBaseline = useRef(JSON.stringify(recipe));
   const steady = recipe.motion === "steady";
+  const applying = pending==="studio-play" || pending==="studio-solid";
   const lightIntent = intent && (intent.turnOff || intent.light || intent.key.startsWith("studio-"));
   const offRequested = Boolean(intent?.turnOff || intent?.light?.on === false);
   const previewOff = offRequested || (followPower && !light.on);
@@ -152,8 +154,13 @@ export function LightStudio({ scenes, light, disabled, onSolid, onDirty, onSeque
   return <div className="light-studio">
     <section ref={editor} tabIndex={-1} className="light-editor" aria-labelledby="light-editor-title">
       <div className={`light-preview ${running && !reduced && !steady ? "is-animating" : ""}`} ref={stage}>
-        <div aria-hidden="true"><div className="light-color-layer" /><div className="preview-dome"><span/></div><span className="preview-surface"/></div>
-        <span className="light-preview-label">{plain ? "Without Effects" : "Preview"}</span>
+        <div aria-hidden="true"><div className="light-color-layer" /><span className="preview-surface"/></div>
+        {/* The lamp is the control: press its dome, like the top of a real Hatch. */}
+        <button className="preview-dome" disabled={disabled} aria-busy={applying} aria-describedby="lamp-caption" onClick={apply}>
+          <span className="preview-dome-key"/><span className="sr-only">{steady?"Apply Color":"Play on Hatch"}</span>
+        </button>
+        <span id="lamp-caption" className="light-preview-label">{applying ? "Applying…" : plain ? "Without Effects" : disabled ? "Preview" : steady ? "Tap Lamp to Apply" : "Tap Lamp to Play"}</span>
+        <button className="preview-off" disabled={disabled || (!light.on && !sequenceActive)} onClick={onOff}><LightbulbOff size={15} aria-hidden="true"/>{pending==="light-off"?"Turning Off…":"Off"}</button>
         {!steady && hasEffects(recipe.effects) && <button className="preview-compare" aria-pressed={plain} onClick={()=>setPlain(v=>!v)}>Compare</button>}
         {!steady && <button className="preview-toggle" aria-label={running?"Pause preview":"Animate preview"} aria-pressed={running} disabled={reduced} onClick={()=>setRunning(v=>!v)}>{running?<Pause size={18} aria-hidden="true"/>:<Play size={18} aria-hidden="true"/>}</button>}
       </div>
@@ -165,8 +172,7 @@ export function LightStudio({ scenes, light, disabled, onSolid, onDirty, onSeque
           {!steady && recipe.stops.length<maxPaletteColors && <button className="key palette-add" aria-label="Add color" onClick={()=>edit({stops:[...recipe.stops,{color:"#eda1ba",seconds:6}]})}><Plus size={20} aria-hidden="true"/></button>}
           {steady && <span className="hint" translate="no">{recipe.stops[0].color.toUpperCase()}</span>}
         </div>
-        <EntryRange id="recipe-brightness" label="Brightness" value={recipe.brightness} min={1} onChange={brightness=>edit({brightness})}/>
-        <div className="light-primary-actions"><button className="key key-ink" disabled={disabled} onClick={apply}><Play size={16} aria-hidden="true"/>{pending==="studio-play"||pending==="studio-solid"?"Applying…":steady?"Apply Color":"Play on Hatch"}</button><button className="key" disabled={disabled || (!light.on && !sequenceActive)} onClick={onOff}><LightbulbOff size={16} aria-hidden="true"/>{pending==="light-off"?"Turning Off…":"Off"}</button></div>
+        <Fader id="recipe-brightness" label="Brightness" icon={<Sun size={16} aria-hidden="true"/>} value={recipe.brightness} min={1} onInput={brightness=>edit({brightness})}/>
         {sequenceActive && <button className="light-stop" disabled={Boolean(pending)} onClick={onStopSequence}><Square size={13} aria-hidden="true"/>{pending==="studio-stop"?"Stopping…":"Stop Motion"}</button>}
         {sequence?.status==="failed" && <p role="status" className="hint">Sequence stopped. {sequence.reason}</p>}
         <div className="light-secondary-actions"><button ref={saveToggle} className="text-key" aria-expanded={saveOpen} aria-controls="save-light-preset" onClick={()=>setSaveOpen(v=>!v)}><Save size={15} aria-hidden="true"/>Save Preset</button>{!steady && <button className="text-key" aria-expanded={shimmerOpen} aria-controls="light-shimmer" onClick={()=>setShimmerOpen(v=>!v)}><Sparkles size={15} aria-hidden="true"/>Shimmer</button>}<button className="text-key" aria-expanded={optionsOpen} aria-controls="light-options" onClick={()=>setOptionsOpen(v=>!v)}>More Options</button></div>

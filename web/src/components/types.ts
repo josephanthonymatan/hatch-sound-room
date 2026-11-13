@@ -14,6 +14,7 @@ export type Track = {
   license?: string;
   tags: string[];
   createdAt?: string;
+  playCount?: number;
   timing?: string;
   removable?: boolean;
   alarmEligible?: boolean;
@@ -83,7 +84,7 @@ export type RoomState = {
 };
 
 export type Tab = "all" | "sounds" | "lights" | "alarms";
-export type Panel = "upload" | "alarm" | "save-sound" | "feedback" | null;
+export type Panel = "upload" | "alarm" | "save-sound" | "feedback" | "help" | null;
 export type Collection = "all" | "uploads" | "hatch" | "favorites" | "saved";
 export type RoomQuery = {
   tab: Tab;

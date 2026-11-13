@@ -134,7 +134,10 @@ export class HatchService {
       }
     }
   }
-  library() { return { tracks: this.sounds().map(track => track.reference || track.routineId ? publicSound(track) : { ...publicTrack(track), removable: !track.seeded }) }; }
+  library() { return { tracks: this.sounds().map(track => ({
+    ...(track.reference || track.routineId ? publicSound(track) : { ...publicTrack(track), removable: !track.seeded }),
+    playCount: this.store.value.soundPlays[track.id] ?? 0,
+  })) }; }
   async refreshFavorites() {
     let routines;
     try { routines = await this.device.fetchFavorites(); }
@@ -159,7 +162,7 @@ export class HatchService {
     const existing = this.store.value.savedSounds.find(item => JSON.stringify(item.reference) === JSON.stringify(track.reference));
     if (existing) {
       this.store.change(state => { state.savedSounds.find(item => item.id === existing.id).category = track.category; });
-      return { track: publicSound({ ...existing, category: track.category }), existing: true };
+      return { track: { ...publicSound({ ...existing, category: track.category }), playCount: this.store.value.soundPlays[existing.id] ?? 0 }, existing: true };
     }
     if (this.store.value.savedSounds.length >= 100) fail('You can save up to 100 Hatch sounds. Remove a saved sound first.', 409);
     this.store.change(state => state.savedSounds.push(track));
@@ -222,6 +225,8 @@ export class HatchService {
     const baseline = dispatchIdentity(shadow);
     const result = await this.device.write(patch, { guard: latest => dispatchIdentity(latest) === baseline });
     if (result?.skipped) fail('The Hatch controls changed before playback started. Refresh the room and try again.', 409);
+    // Count accepted manual selections, never polls, alarm starts or ambiguous writes.
+    this.store.change(state => { state.soundPlays[track.id] = Math.min(Number.MAX_SAFE_INTEGER, (state.soundPlays[track.id] ?? 0) + 1); });
   }
   async stop() {
     this.lightSequence.cancel('Hatch stopped from the web controls.');
@@ -326,7 +331,7 @@ export class HatchService {
     const trackURLs = new Set([track.reference?.url ?? this.audioUrl(track.audioCapability), ...this.store.value.alarmMedia.filter(media => media.trackId === id).map(media => this.audioUrl(media.token))]);
     const inUse = [shadow.state.reported, shadow.state.desired].some(state => ['remote', 'routine'].includes(state?.current?.playing) && trackURLs.has(state.current.sound?.url));
     if (inUse || this.store.value.alarms.some(alarm => alarm.trackId === id && (alarm.enabled || activeStatus(alarm.status)))) fail('This track is playing, pending playback, or used by an unfinished alarm. Stop playback and cancel its alarms first.', 409);
-    this.store.change(state => { state.tracks = state.tracks.filter(item => item.id !== id); state.savedSounds = state.savedSounds.filter(item => item.id !== id); state.alarmMedia = state.alarmMedia.filter(item => item.trackId !== id); });
+    this.store.change(state => { state.tracks = state.tracks.filter(item => item.id !== id); state.savedSounds = state.savedSounds.filter(item => item.id !== id); state.alarmMedia = state.alarmMedia.filter(item => item.trackId !== id); delete state.soundPlays[id]; });
     if (track.filename) await unlink(mediaPath(this.dataDir, track.filename)).catch(error => { if (error.code !== 'ENOENT') throw error; });
   }
   audioFile(token) {

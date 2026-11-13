@@ -23,6 +23,8 @@ export class Store {
     if (this.value.version !== 1 || !Array.isArray(this.value.tracks) || !Array.isArray(this.value.alarms)) throw new Error('Unsupported or corrupt stored data; restore a verified backup.');
     // Additive migration: existing uploads and pending alarm instants are untouched.
     this.value.savedSounds ??= [];
+    this.value.soundPlays ??= {};
+    if (!this.value.soundPlays || Array.isArray(this.value.soundPlays) || typeof this.value.soundPlays !== 'object' || Object.values(this.value.soundPlays).some(count => !Number.isSafeInteger(count) || count < 0)) throw new Error('Invalid stored sound counts; restore a verified backup.');
     this.value.alarmMedia ??= [];
     this.value.hatch ??= { favorites: [], sounds: [], syncedAt: null, catalogStatus: 'bundled' };
     if (!Array.isArray(this.value.savedSounds) || !Array.isArray(this.value.hatch.favorites) || !Array.isArray(this.value.hatch.sounds) || !Array.isArray(this.value.alarmMedia)) throw new Error('Invalid stored sound library; restore a verified backup.');

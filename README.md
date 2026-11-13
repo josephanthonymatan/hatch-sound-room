@@ -10,6 +10,8 @@ Sound Room is a self-hosted web app for uploading MP3s and field recordings, pla
 
 *The demo uses a fake device; you can explore it before configuring credentials.*
 
+The Room puts volume, light color and brightness within reach. Frequently chosen sounds rise to the front automatically, with counts saved across sessions. Hardware tips are under **More → Using Your Hatch**.
+
 ## Try it without a Hatch
 
 You need **Node.js 24.5+**, npm, and **ffmpeg** (including `ffprobe`) on your PATH. Check with `node --version` and `ffmpeg -version`. On macOS, `brew install node@24 ffmpeg` supplies these; on Ubuntu, install Node 24 and `sudo apt-get install ffmpeg`.

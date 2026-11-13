@@ -11,6 +11,7 @@ The browser talks to one authenticated Node service. That service owns a SQLite 
 | Photo extraction or selection | [Photo palettes](#photo-palettes) | Accent/neutral/transparency fixtures plus WebKit/Chromium import, cancellation and privacy checks |
 | Alarm timing or recurrence | [Alarms](#alarms) | DST, restart, claim and dispatch-race tests |
 | Uploads and recordings | [Storage and media](#storage-and-media) | Real ffmpeg normalization and persistence fixtures |
+| Sound ordering | [Sound usage](#sound-usage) | Accepted/rejected selection counts, restart/sync persistence and browser ranking |
 | Browser UI | `web/src/components/` and `web/src/globals.css` | Strict build, fake-preview browser checks, phone widths and both color schemes |
 | Auth or routes | `cloud/auth.mjs`, `cloud/core.mjs`, `cloud/server.mjs` | Unauthorized/wrong-Origin rejection and API tests |
 
@@ -53,3 +54,7 @@ Media is served through unguessable capability URLs so the device can fetch audi
 `web/src/components/sound-room-app.tsx` owns login/session startup. `sound-room.tsx` coordinates reported state and user intent. `room-state.ts` excludes late reads that predate accepted edits. `forms.tsx`, `data-entry.tsx` and `form-data-entry.tsx` provide forms and phone-friendly entry; `light-studio.tsx` manages browser-local presets.
 
 Keep the tactile paper/ink surfaces, blue time controls, raised pill keys and inset wells. Use native time/color/file controls, readable text, visible focus and reduced-motion support. All browser verification uses the disposable fake preview, not a second real controller.
+
+## Sound usage
+
+The store keeps `soundPlays` separately from catalog/favorite data, keyed by the existing opaque library ID. A successful manual play increments its count once after cloud acceptance; polls, automatic alarms, rejected/skipped writes and ambiguous failures leave it alone. Library responses expose `playCount`. Counts survive sync and restart, and deletion removes the corresponding count. The home deck and sounds within each category rank by count with stable library-order ties. These counts describe selections, not confirmed audible playback.

@@ -485,6 +485,135 @@ input[type="range"]:disabled {
   opacity: 0.5;
 }
 
+/* Live fader: round step keys, a graduated groove and a knob that lifts in the hand. */
+.fader-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 10px;
+}
+.fader-step {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(var(--key-top), var(--key-bottom));
+  box-shadow: var(--shadow-raised);
+  color: var(--ink);
+  touch-action: manipulation;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.fader-step:active:not(:disabled) {
+  transform: translateY(1px) scale(0.96);
+  box-shadow: var(--shadow-pressed);
+}
+.fader-step:disabled {
+  opacity: 0.4;
+}
+.fader-track {
+  position: relative;
+  padding-bottom: 8px;
+  cursor: grab;
+  /* Vertical swipes still scroll the page; sideways ones move the fader. */
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.fader[data-dragging] .fader-track {
+  cursor: grabbing;
+}
+.fader-track input[type="range"] {
+  position: relative;
+  z-index: 1;
+  height: 48px;
+  pointer-events: none;
+}
+/* Graduations every ten percent, aligned with the knob's centre of travel. */
+.fader-track::after {
+  content: "";
+  position: absolute;
+  inset: auto 16px 4px;
+  height: 6px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--line-strong) 0 1px,
+    transparent 1px calc((100% - 1px) / 10)
+  );
+}
+.fader-track input[type="range"]::-webkit-slider-runnable-track {
+  height: 12px;
+}
+.fader-track input[type="range"]::-moz-range-track,
+.fader-track input[type="range"]::-moz-range-progress {
+  height: 12px;
+}
+.fader-track input[type="range"]::-webkit-slider-thumb {
+  width: 32px;
+  height: 32px;
+  margin-top: -10px;
+  background:
+    radial-gradient(circle at 50% 50%, rgb(0 0 0 / 10%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at 50% 32%, #fff 0, #efeee9 45%, #d2d0c9 100%);
+  transition: transform 0.14s cubic-bezier(0.2, 0.9, 0.3, 1.4), box-shadow 0.14s ease;
+}
+.fader-track input[type="range"]::-moz-range-thumb {
+  width: 32px;
+  height: 32px;
+  background:
+    radial-gradient(circle at 50% 50%, rgb(0 0 0 / 10%) 0 3px, transparent 3.5px),
+    radial-gradient(circle at 50% 32%, #fff 0, #efeee9 45%, #d2d0c9 100%);
+  transition: transform 0.14s cubic-bezier(0.2, 0.9, 0.3, 1.4), box-shadow 0.14s ease;
+}
+.fader[data-dragging] input[type="range"]::-webkit-slider-thumb {
+  transform: scale(1.12);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 0 0 0.5px rgb(0 0 0 / 22%),
+    0 4px 6px rgb(0 0 0 / 18%),
+    0 14px 22px -8px rgb(0 0 0 / 45%);
+}
+.fader[data-dragging] input[type="range"]::-moz-range-thumb {
+  transform: scale(1.12);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 0 0 0.5px rgb(0 0 0 / 22%),
+    0 4px 6px rgb(0 0 0 / 18%),
+    0 14px 22px -8px rgb(0 0 0 / 45%);
+}
+.fader[data-dragging] .value-key {
+  transform: scale(1.08);
+}
+.fader .value-key {
+  transition: transform 0.14s ease;
+}
+/* A small light while the Hatch has yet to report the chosen level. */
+.fader-sync {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.fader[data-syncing] .fader-sync {
+  opacity: 1;
+  animation: fader-sync 1.2s ease-in-out infinite;
+}
+@keyframes fader-sync {
+  50% { opacity: 0.25; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fader-step,
+  .fader .value-key,
+  .fader-track input[type="range"]::-webkit-slider-thumb,
+  .fader-track input[type="range"]::-moz-range-thumb { transition: none; }
+  .fader[data-syncing] .fader-sync { animation: none; }
+}
+
 /* Colour well: a raised bezel around a recessed swatch. */
 .color-well {
   position: relative;
@@ -546,6 +675,10 @@ input[type="range"]:disabled {
   margin-left: -8px;
   border-radius: 50%;
 }
+.brand, .brand svg, .page-head h1 { color: var(--ink); }
+html[data-screen="alarms"] .brand,
+html[data-screen="alarms"] .brand svg,
+html[data-screen="alarms"] .page-head h1 { color: var(--blue-ink); }
 
 .device-status {
   --led: #ffb020;
@@ -723,13 +856,11 @@ h1 {
     align-items: stretch;
   }
   .room-grid .blue-card,
-  .deck-section,
-  .about-note {
+  .deck-section {
     grid-column: 1 / -1;
   }
 }
 
-.device-card,
 .light-card {
   display: grid;
   justify-items: center;
@@ -740,17 +871,6 @@ h1 {
   background: linear-gradient(var(--paper-2), var(--surface));
   box-shadow: var(--shadow-card);
   text-align: center;
-}
-.device-caption h2 {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-.device-caption p {
-  margin: 2px 0 0;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
 }
 
 /* The Hatch itself: a frosted dome that takes on the reported light. */
@@ -844,14 +964,17 @@ h1 {
 }
 .record-stage {
   position: relative;
-  aspect-ratio: 1;
+  width: min(100%, 260px);
+  margin-inline: auto;
+  aspect-ratio: 2;
   overflow: hidden;
-  border-radius: 36px;
+  border-radius: 24px;
   container-type: inline-size;
 }
 .record-disc {
   position: absolute;
-  inset: 0;
+  inset: 0 0 auto;
+  aspect-ratio: 1;
   border-radius: 50%;
   transform: translateY(-54%);
   box-shadow: 0 26px 28px -15px rgb(0 0 0 / 38%), 0 8px 10px -7px rgb(0 0 0 / 35%);
@@ -900,36 +1023,20 @@ h1 {
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 45%), 0 1px 3px rgb(0 0 0 / 20%);
   transition: opacity 180ms ease;
 }
-.record-caption {
+.record-status {
   position: absolute;
-  inset: 54% 8% 6%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-  transition: transform 460ms var(--record-ease), opacity 240ms ease;
+  z-index: 1;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: .875rem;
+  white-space: nowrap;
 }
-.record-caption .sleeve-title {
-  font-size: clamp(1.05rem, 5.5cqw, 1.5rem);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.record-caption .sleeve-meta { margin-bottom: 0; }
-.record-meter {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  height: 22px;
-  margin-bottom: 5px;
-  color: var(--ink-2);
-}
-.record-meter i { width: 2px; height: 8px; background: currentColor; border-radius: 2px; }
-.record-meter i:nth-child(2n) { height: 14px; }
-.record-meter i:nth-child(3) { height: 20px; }
 .record-cover {
   position: absolute;
   inset: 0;
@@ -943,7 +1050,6 @@ h1 {
 .is-expanded .record-disc { transform: translateY(0); opacity: 0; transition-delay: 0ms, 180ms; }
 .is-expanded .record-hub { opacity: 0; }
 .is-expanded .record-cover { transform: translateY(0) scale(1); opacity: 1; transition-delay: 0ms, 100ms; }
-.is-expanded .record-caption { transform: translateY(18px); opacity: 0; }
 .record-art-toggle {
   position: absolute;
   inset: 0;
@@ -975,37 +1081,33 @@ h1 {
   .record-motion-toggle { display: none; }
 }
 .sleeve-body {
+  padding: 12px 20px 20px;
+}
+.room-light {
+  min-width: 0;
   display: grid;
-  justify-items: center;
-  gap: 4px;
-  padding: 6px 20px 22px;
+  align-content: center;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 30px;
+  background: linear-gradient(165deg, var(--surface), var(--paper-2));
+  box-shadow: var(--shadow-card);
 }
-.sleeve-kicker {
-  margin: 0;
-  color: var(--ink-2);
-  font-size: 0.9375rem;
+.room-light-head,
+.room-light-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
-.sleeve-title {
-  max-width: 100%;
-  margin: 0;
-  font-size: 1.375rem;
-  font-weight: 600;
-  letter-spacing: -0.025em;
-  line-height: 1.15;
-  overflow-wrap: anywhere;
-}
-.sleeve-meta {
-  margin: 0 0 10px;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
-.sleeve .fader {
-  margin-bottom: 8px;
-}
-.power-key {
-  width: 100%;
-  margin-top: 4px;
-}
+.room-light-head { justify-content: space-between; }
+.room-light-head h2 { margin: 0; font-size: 1.25rem; font-weight: 600; }
+.room-light-head h2 a { display: flex; align-items: center; gap: 4px; min-height: 44px; color: var(--ink); }
+.room-light-head h2 a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.room-light-actions { margin-left: auto; }
+.room-light-actions .color-well { flex-shrink: 0; }
+.room-light-actions [role="switch"] { min-width: 56px; }
+.room-light-actions [aria-checked="true"] { background: var(--ink); color: var(--paper); }
 
 /* Next alarm: printed on Klein blue. */
 .blue-card {
@@ -1024,6 +1126,20 @@ h1 {
     inset 0 1px 0 rgb(255 255 255 / 20%),
     0 0 0 0.5px rgb(10 30 140 / 50%),
     0 22px 40px -22px rgb(20 52 203 / 80%);
+}
+.new-alarm-card {
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  padding: 16px 20px;
+  gap: 16px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  transition: transform 160ms ease;
+}
+.new-alarm-card:hover { transform: translateY(-2px); }
+.new-alarm-card:active { transform: scale(.96); }
+@media (prefers-reduced-motion: reduce) {
+  .new-alarm-card { transition: none; }
+  .new-alarm-card:hover, .new-alarm-card:active { transform: none; }
 }
 .blue-card h2 {
   margin: 0;
@@ -1103,6 +1219,8 @@ h2.big-time {
 .deck-section {
   min-width: 0;
 }
+.deck-section .section-head h2,
+.deck-section .pill-link { color: var(--ink); }
 .deck {
   display: flex;
   gap: 14px;
@@ -1237,21 +1355,6 @@ h2.big-time {
   box-shadow:
     0 0 0 2px #fff,
     0 4px 10px -2px rgb(0 0 0 / 35%);
-}
-
-.about-note {
-  padding: 18px 20px;
-  border: 1.5px dashed var(--line-strong);
-  border-radius: 24px;
-}
-.about-note h2 {
-  margin: 0 0 4px;
-  font-size: 1rem;
-  font-weight: 600;
-}
-.about-note p {
-  margin: 0;
-  color: var(--ink-2);
 }
 
 /* ——— Sounds ——— */
@@ -2662,14 +2765,29 @@ dialog.sheet::backdrop {
 .light-color-layer { --light: 0 0 0; position: absolute; inset: -30px; opacity: 0; background: radial-gradient(ellipse at 50% 55%, rgb(var(--light)) 0%, rgb(var(--light) / .6) 24%, transparent 65%); }
 .light-preview.is-animating .light-color-layer { will-change: opacity, background; }
 .preview-dome { position: absolute; left: 50%; top: 18%; width: 105px; height: 120px; transform: translateX(-50%); border-radius: 52% 52% 29% 29% / 35% 35% 15% 15%; background: linear-gradient(100deg,#fff2,#fffa 45%,#fff3); border: 1px solid #fff5; box-shadow: inset 6px 0 15px #ffffff30, 0 20px 30px #0005; }
-.preview-dome span { position: absolute; left: 37%; top: 4px; width: 26%; height: 16px; border-radius: 50%; background: #121212; box-shadow: 0 2px 3px #fffa; }
+.preview-dome span.preview-dome-key { position: absolute; left: 37%; top: 4px; width: 26%; height: 16px; border-radius: 50%; background: #121212; box-shadow: 0 2px 3px #fffa; transition: transform .12s ease, box-shadow .12s ease, background .2s ease; }
+/* The lamp is the apply button: the dome sinks and its top key presses in. */
+button.preview-dome { z-index: 1; padding: 0; color: inherit; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; transition: transform .14s cubic-bezier(.2,.9,.3,1.3), filter .14s ease, box-shadow .14s ease; }
+button.preview-dome:hover:not(:disabled) { filter: brightness(1.12); }
+button.preview-dome:active:not(:disabled) { transform: translateX(-50%) translateY(3px) scale(.97); filter: brightness(1.25); box-shadow: inset 6px 0 15px #ffffff30, 0 12px 18px #0006; }
+button.preview-dome:active:not(:disabled) .preview-dome-key { transform: scaleY(.7); box-shadow: inset 0 2px 3px #000, 0 1px 1px #fff6; }
+button.preview-dome:focus-visible { outline: 2px solid #fff; outline-offset: 6px; }
+button.preview-dome:disabled { cursor: default; opacity: .6; }
+button.preview-dome[aria-busy="true"] .preview-dome-key { background: #f4f2ea; box-shadow: 0 0 12px #fff, 0 2px 3px #fffa; animation: lamp-key 1s ease-in-out infinite; }
+@keyframes lamp-key { 50% { opacity: .55; } }
+.preview-off { position: absolute; z-index: 1; top: 10px; right: 12px; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; background: #ffffff1a; color: #fff; font: inherit; font-size: 13px; font-weight: 600; }
+.preview-off:hover:not(:disabled) { background: #ffffff30; }
+.preview-off:active:not(:disabled) { transform: translateY(1px); background: #ffffff10; }
+.preview-off:focus-visible { outline-color: #fff; }
+.preview-off:disabled { opacity: .4; }
+@media (prefers-reduced-motion: reduce) { button.preview-dome, .preview-dome-key { transition: none; } button.preview-dome[aria-busy="true"] .preview-dome-key { animation: none; } }
 .preview-surface { position: absolute; inset: auto 0 0; height: 30px; background: linear-gradient(transparent,#0005); }
 .light-preview-label { position: absolute; left: 20px; bottom: 16px; color: #ddd; font-size: 12px; }
 .preview-toggle { position: absolute; right: 12px; bottom: 8px; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: #ffffff1a; color: #fff; }
 .preview-toggle:focus-visible { outline-color: #fff; }
 .preview-toggle:hover { background: #ffffff30; }
 .preview-toggle:disabled { opacity: .4; }
-.preview-compare { position: absolute; right: 64px; bottom: 8px; min-height: 44px; padding: 0 16px; border: 0; border-radius: 999px; background: #ffffff1a; color: #fff; font: inherit; font-size: 13px; }
+.preview-compare { position: absolute; z-index: 1; left: 12px; top: 10px; min-height: 44px; padding: 0 16px; border: 0; border-radius: 999px; background: #ffffff1a; color: #fff; font: inherit; font-size: 13px; }
 .preview-compare:hover { background: #ffffff30; }
 .preview-compare:focus-visible { outline-color: #fff; }
 .preview-compare[aria-pressed="true"] { background: #fff; color: #101113; }
@@ -2690,9 +2808,6 @@ dialog.sheet::backdrop {
 .recipe-field input:not([type="range"]), .recipe-field textarea, .recipe-seconds input { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--well-bg); color: var(--ink); font: inherit; }
 .recipe-field textarea { resize: vertical; }
 .recipe-field input[type="range"] { width: 100%; min-height: 44px; accent-color: var(--ink); }
-.light-primary-actions { display: flex; gap: 10px; }
-.light-primary-actions .key:first-child { flex: 1; }
-.light-primary-actions .key { min-width: 0; }
 .light-stop { justify-self: center; display: flex; gap: 8px; align-items: center; justify-content: center; min-height: 44px; padding: 6px 14px; margin-top: -12px; border: 0; border-radius: 999px; background: none; color: var(--ink-2); font: inherit; font-size: 14px; }
 .light-stop:hover { background: var(--well-bg); color: var(--ink); }
 .light-secondary-actions { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; border-top: 1px solid var(--line); padding-top: 8px; }
@@ -2747,7 +2862,7 @@ dialog.sheet::backdrop {
 .light-recipe-card strong { font-size: 14px; font-weight: 550; overflow-wrap: anywhere; }
 .light-recipe-orb { display: block; width: min(100%,80px); aspect-ratio: 1; border: 4px solid var(--paper); border-radius: 50%; box-shadow: inset 0 2px 8px #fff6, inset 0 -10px 15px #0003, 0 5px 10px #0002; transition: transform 200ms ease; }
 .light-recipe-card:hover .light-recipe-orb { transform: translateY(-3px); }
-@media (max-width: 380px) { .light-editor-body { padding: 18px; } .light-palette { gap: 8px; } .light-primary-actions .key { padding-inline: 14px; } }
+@media (max-width: 380px) { .light-editor-body { padding: 18px; } .light-palette { gap: 8px; } }
 @media (prefers-reduced-motion: reduce) { .light-recipe-orb { transition: none; } }
 
 /* Per-phone feedback settings reuse the room's physical pill keys. */

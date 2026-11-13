@@ -26,7 +26,7 @@ try {
  await page.getByRole('button',{name:'Compare',exact:true}).click();
  await expect(page.locator('.light-preview-label')).toHaveText('Without Effects');
  await page.getByRole('button',{name:'Compare',exact:true}).click();
- await expect(page.locator('.light-preview-label')).toHaveText('Preview');
+ await expect(page.locator('.light-preview-label')).toHaveText('Tap Lamp to Play');
  await page.getByRole('button',{name:'Pause preview'}).click();
  // Editing: keyboard on sliders, blend switch, bloom tint, breathing rhythm.
  await page.getByRole('slider',{name:'Bloom'}).focus(); await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight');

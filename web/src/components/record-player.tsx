@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pause, Play } from "lucide-react";
 import { TrackArtwork } from "./artwork";
-import { kindLabel, trackTiming, type Track } from "./types";
+import type { Track } from "./types";
 
 export function RecordPlayer({ track, title, playing, index, statusLabel }: {
   track?: Track; title: string; playing: boolean; index: number; statusLabel?: string;
@@ -43,12 +43,8 @@ export function RecordPlayer({ track, title, playing, index, statusLabel }: {
           <span className="record-sheen" />
           <span className="record-hub" />
         </div>
-        <div className="record-caption">
-          <span className="record-meter" aria-hidden="true"><i /><i /><i /><i /><i /></span>
-          <p className="sleeve-kicker" role="status">{statusLabel || (playing ? track ? kindLabel(track.kind) : "Reported by Your Hatch" : "Now Playing")}</p>
-          <h2 id="now-title" className="sleeve-title">{title}</h2>
-          <p className="sleeve-meta">{statusLabel ? "Waiting for Hatch confirmation." : playing ? track ? trackTiming(track) : "Playing" : "Choose a sound below."}</p>
-        </div>
+        <h2 id="now-title" className="sr-only">{title}</h2>
+        <p className={statusLabel ? "record-status" : "sr-only"} role="status">{statusLabel || (playing ? `Playing ${title}` : "Nothing playing")}</p>
         <div className="record-cover" aria-hidden="true">
           <TrackArtwork track={artwork} index={Math.max(0, index)} />
         </div>

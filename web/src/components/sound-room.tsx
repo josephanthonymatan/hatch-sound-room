@@ -41,10 +41,10 @@ import { haptic, HapticSettings } from "./haptics";
 import { BusyIcon, RefreshIcon } from "./busy-icon";
 import {
   ClockFace,
-  HatchDevice,
   TrackArtwork,
   trackInk,
 } from "./artwork";
+import { Fader } from "./fader";
 import { LightStudio } from "./light-studio";
 import { RecordPlayer } from "./record-player";
 import { Sheet, AlarmForm, SaveSoundForm, UploadForm } from "./forms";
@@ -102,7 +102,7 @@ function readQuery(search = window.location.search): RoomQuery {
     view: params.get("view") === "table" ? "table" : "grid",
     q: params.get("q") || "",
     panel:
-      panel === "upload" || panel === "alarm" || panel === "save-sound" || panel === "feedback"
+      panel === "upload" || panel === "alarm" || panel === "save-sound" || panel === "feedback" || panel === "help"
         ? panel
         : null,
     collection: collections.find((item) => item.id === collection)?.id ?? "all",
@@ -140,7 +140,8 @@ function focusPanelTrigger(panel: RoomQuery["panel"], alarmId?: string | null) {
       ...document.querySelectorAll<HTMLElement>(
         `[data-panel-trigger="${panel}"]`,
       ),
-    ].find((element) => element.getClientRects().length > 0);
+    ].map((element) => element.closest("details:not([open])")?.querySelector<HTMLElement>("summary") ?? element)
+      .find((element) => element.getClientRects().length > 0);
     (alarmTrigger || trigger || document.querySelector<HTMLElement>("#page-title"))?.focus({
       preventScroll: true,
     });
@@ -200,6 +201,10 @@ function HatchMark() {
   );
 }
 
+type CommitOutcome = "accepted" | "rejected" | "unknown";
+// How long an accepted value stays on screen while its device report catches up.
+const CONFIRM_HOLD_MS = 20_000;
+
 function LiveRange({
   id,
   label,
@@ -213,81 +218,101 @@ function LiveRange({
   icon: ReactNode;
   value: number;
   disabled: boolean;
-  onCommit: (value: number) => Promise<boolean>;
+  onCommit: (value: number) => Promise<CommitOutcome>;
 }) {
-  const [draft, setDraft] = useState(value);
-  const [sending, setSending] = useState(false);
+  const [draft, setDraftState] = useState(value);
+  const [syncing, setSyncing] = useState(false);
   const editing = useRef(false);
-  const committing = useRef(false);
+  // The value the person chose, shown until the device reports it.
+  const target = useRef<number | null>(null);
+  const inFlight = useRef(false);
+  const queued = useRef<number | null>(null);
+  const hold = useRef(0);
   const reportedValue = useRef(value);
   reportedValue.current = value;
+
+  const settle = useCallback((next: number) => {
+    target.current = null;
+    window.clearTimeout(hold.current);
+    setSyncing(false);
+    setDraftState(next);
+  }, []);
+
   useEffect(() => {
-    if (committing.current) return;
-    if (disabled) editing.current = false;
-    if (!editing.current) setDraft(value);
-  }, [value, disabled]);
-  async function commit(next: number) {
-    if (!editing.current || committing.current) return;
-    editing.current = false;
-    if (disabled || next === value) { setDraft(value); return; }
-    committing.current = true;
-    setSending(true);
-    try { await onCommit(next); }
-    finally {
-      committing.current = false;
-      setSending(false);
-      setDraft(reportedValue.current);
+    if (disabled) {
+      editing.current = false;
+      if (!inFlight.current) settle(value);
+      return;
     }
+    if (editing.current || inFlight.current) return;
+    if (target.current === null || target.current === value) settle(value);
+  }, [value, disabled, settle]);
+
+  useEffect(() => () => window.clearTimeout(hold.current), []);
+
+  async function send(next: number) {
+    inFlight.current = true;
+    setSyncing(true);
+    window.clearTimeout(hold.current);
+    let outcome: CommitOutcome = "rejected";
+    try { outcome = await onCommit(next); }
+    finally { inFlight.current = false; }
+    const latest = queued.current;
+    queued.current = null;
+    // Coalesce changes made while the request was out: only the newest is sent.
+    if (latest !== null && latest !== next) { void send(latest); return; }
+    if (editing.current) return;
+    if (outcome !== "accepted" || reportedValue.current === next) { settle(reportedValue.current); return; }
+    hold.current = window.setTimeout(() => {
+      if (target.current === next && !editing.current && !inFlight.current) settle(reportedValue.current);
+    }, CONFIRM_HOLD_MS);
   }
+
+  function commit(next: number) {
+    if (!editing.current) return;
+    editing.current = false;
+    if (disabled) { settle(value); return; }
+    const goal = target.current ?? reportedValue.current;
+    if (next === goal && !inFlight.current) { setDraftState(next); return; }
+    target.current = next;
+    setDraftState(next);
+    if (inFlight.current) { queued.current = next; setSyncing(true); return; }
+    void send(next);
+  }
+
   return (
-    <div className="fader">
-      <div className="fader-label">
-        <label htmlFor={id}>{icon}<span>{label}</span></label>
-        <PreciseValue label={label} value={draft} display={sending ? "Updating…" : percentage(draft)} disabled={disabled || sending}
-          onCommit={next=>{editing.current=true;setDraft(next);void commit(next);}}/>
-      </div>
-      <input
-        id={id}
-        name={id}
-        type="range"
-        autoComplete="off"
-        min="0"
-        max="100"
-        value={draft}
-        style={{ "--fill": `${draft}%` } as CSSProperties}
-        aria-valuetext={percentage(draft)}
-        disabled={disabled || sending}
-        onPointerDown={() => {
-          editing.current = true;
-        }}
-        onChange={(event) => {
-          editing.current = true;
-          setDraft(Number(event.target.value));
-        }}
-        onPointerUp={(event) => void commit(Number(event.currentTarget.value))}
-        onPointerCancel={() => {
-          editing.current = false;
-          setDraft(value);
-        }}
-        onKeyUp={(event) => {
-          if (
-            [
-              "ArrowLeft",
-              "ArrowRight",
-              "ArrowUp",
-              "ArrowDown",
-              "Home",
-              "End",
-              "PageUp",
-              "PageDown",
-            ].includes(event.key)
-          )
-            void commit(Number(event.currentTarget.value));
-        }}
-        onBlur={(event) => void commit(Number(event.currentTarget.value))}
-      />
-    </div>
+    <Fader id={id} label={label} icon={icon} value={draft} disabled={disabled} syncing={syncing}
+      onInput={(next) => { editing.current = true; setDraftState(next); }}
+      onCommit={commit} />
   );
+}
+
+function RoomLight({ light, intent, pending, canControl, studioLink, onColor, onPower, onBrightness }: {
+  light: RoomState["light"]; intent: DeviceIntent | null; pending: string; canControl: boolean;
+  studioLink: LinkProps; onColor: (color: string) => Promise<CommitOutcome>;
+  onPower: (brightness: number) => void; onBrightness: (brightness: number) => Promise<CommitOutcome>;
+}) {
+  const [color, setColor] = useState<string | null>(null);
+  const on = intent?.light?.on ?? light.on;
+  const disabled = !canControl || Boolean(pending);
+  return <section className="room-light" aria-labelledby="room-light-title">
+    <div className="room-light-head">
+      <h2 id="room-light-title"><a {...studioLink} aria-label="Light studio">Light <ChevronRight size={16} aria-hidden="true" /></a></h2>
+      <div className="room-light-actions">
+        <label className="color-well color-well-small"><span className="sr-only">Light color</span>
+          <input name="room-color" type="color" autoComplete="off" disabled={disabled}
+            value={color ?? intent?.light?.color ?? light.color} onChange={event => setColor(event.target.value)} />
+        </label>
+        {color !== null && <button className="key key-compact" disabled={disabled} onClick={async () => {
+          if (await onColor(color) === "accepted") setColor(null);
+        }}>Apply Color</button>}
+        <button className="key key-compact" role="switch" aria-label="Light power" aria-checked={on}
+          disabled={disabled} onClick={() => onPower(on ? 0 : 65)}>{on ? "On" : "Off"}</button>
+      </div>
+    </div>
+    <LiveRange id="room-brightness" label="Brightness" icon={<Sun size={16} aria-hidden="true" />} value={light.brightness}
+      disabled={!canControl || Boolean(pending && pending !== "room-brightness")} onCommit={onBrightness} />
+  </section>;
 }
 
 function DockMenu({ children }: { children: ReactNode }) {
@@ -553,6 +578,7 @@ export function SoundRoom({
       });
     }
     const finish = updates.current.begin(scope);
+    const finishUsage = key.startsWith("play-") ? updates.current.begin("library") : undefined;
     setPending(key);
     setNotice(null);
     let uncertain = false;
@@ -582,6 +608,7 @@ export function SoundRoom({
       return uncertain ? "unknown" : "rejected";
     } finally {
       finish();
+      finishUsage?.();
       pendingRef.current = false;
       setPending("");
       // Read reported device state in the background; acceptance releases controls.
@@ -631,15 +658,16 @@ export function SoundRoom({
   const tracks = room?.library || emptyTracks;
   const scenes = room?.scenes || emptyScenes;
   const alarms = room?.alarms || emptyAlarms;
+  const rankedTracks = useMemo(() => [...tracks].sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0)), [tracks]);
   const search = query.q.trim().toLocaleLowerCase();
   const collectionTracks = useMemo(
     () =>
-      tracks.filter(
+      rankedTracks.filter(
         (track) =>
           query.collection === "all" ||
           collectionOf(track) === query.collection,
       ),
-    [tracks, query.collection],
+    [rankedTracks, query.collection],
   );
   const filteredTracks = useMemo(
     () =>
@@ -776,7 +804,12 @@ export function SoundRoom({
   };
 
   const pageAction =
-    query.tab === "sounds" ? (
+    query.tab === "all" ? (
+      <button className="round-key" aria-label="Turn Off Hatch" title="Turn Off Hatch"
+        aria-busy={pendingKey === "stop"} disabled={disabled || !canTurnOffHatch} onClick={turnOff}>
+        {pendingKey === "stop" ? <BusyIcon size={22} /> : <Power size={22} aria-hidden="true" />}
+      </button>
+    ) : query.tab === "sounds" ? (
       <a
         className="round-key"
         aria-label="Upload a Sound"
@@ -823,31 +856,6 @@ export function SoundRoom({
   else if (query.tab === "all")
     screen = (
       <div className="room-grid">
-        <section className="device-card" aria-labelledby="device-title">
-          <HatchDevice
-            on={deviceIntent?.light?.on ?? room.light.on}
-            color={deviceIntent?.light?.color ?? room.light.color}
-            brightness={deviceIntent?.light?.brightness ?? room.light.brightness}
-          />
-          <div className="device-caption">
-            <h2 id="device-title" translate="no">
-              {room.device.product || "Hatch"}
-            </h2>
-            <p>
-              {isPlaying ? "Sound On" : "Sound Off"}
-              <span aria-hidden="true"> · </span>
-              {room.light.on
-                ? `Light ${percentage(room.light.brightness)}`
-                : "Light Off"}
-            </p>
-            {deviceIntent?.light && <p role="status">{pendingLabel}</p>}
-          </div>
-          <a className="pill-link" {...navLink({ tab: "lights" })}>
-            Adjust Light
-            <ChevronRight size={16} aria-hidden="true" />
-          </a>
-        </section>
-
         <section className="sleeve" aria-labelledby="now-title">
           <RecordPlayer key={playerTrack?.id ?? "idle"} track={playerTrack} title={playerTrack?.title || currentTitle} playing={playerIntent ? false : isPlaying}
             statusLabel={playerIntent ? deviceIntent?.turnOff ? deviceIntent.phase === "sending" ? "Turning Off…" : "Confirming Off…" : pendingLabel : undefined}
@@ -858,7 +866,8 @@ export function SoundRoom({
               label="Volume"
               icon={<Volume2 size={16} aria-hidden="true" />}
               value={room.playback.volume || 0}
-              disabled={disabled}
+              // Its own pending request never locks the fader; changes queue instead.
+              disabled={!canControl || Boolean(pending && pending !== "volume")}
               onCommit={async (volume) => {
                 const outcome = await command(
                   "volume",
@@ -867,46 +876,23 @@ export function SoundRoom({
                   "Volume request accepted. The latest device report appears above.",
                   "PATCH",
                 );
-                // Only this fader waits for the fresh report; other controls unlock.
-                if (outcome !== "rejected" && fetchRef.current) await fetchRef.current;
-                return outcome === "accepted";
+                // An uncertain result shows the next report; an accepted one stays on screen.
+                if (outcome === "unknown" && fetchRef.current) await fetchRef.current;
+                return outcome;
               }}
             />
-            <button
-              className="key key-ink power-key"
-              disabled={disabled || !canTurnOffHatch}
-              aria-describedby="hatch-off-help"
-              onClick={turnOff}
-            >
-              {pendingKey === "stop" ? (
-                <BusyIcon size={16} />
-              ) : (
-                <Power size={16} aria-hidden="true" />
-              )}
-              <span>
-                {pendingKey === "stop" ? (
-                  deviceIntent?.phase === "confirming" ? "Confirming Off…" : "Turning Off…"
-                ) : (
-                  <>
-                    Turn Off <span translate="no">Hatch</span>
-                  </>
-                )}
-              </span>
-            </button>
-            <p className="hint" id="hatch-off-help">
-              Stops sound and light.
-            </p>
-            {room.playback.captureKey && (
-              <a
-                className="pill-link"
-                data-panel-trigger="save-sound"
-                {...navLink({ panel: "save-sound" })}
-              >
-                <BookmarkPlus size={16} aria-hidden="true" /> Save Current Sound
-              </a>
-            )}
           </div>
         </section>
+
+        <RoomLight light={room.light} intent={deviceIntent} pending={pending} canControl={canControl}
+          studioLink={navLink({ tab: "lights" })}
+          onColor={color => command("room-color", "/light", { color }, "Color sent to Hatch.", "PATCH")}
+          onPower={brightness => void command("light-off", "/light", { brightness }, "Light request sent.", "PATCH")}
+          onBrightness={async brightness => {
+            const outcome = await command("room-brightness", "/light", { brightness }, "Brightness request accepted.", "PATCH");
+            if (outcome === "unknown" && fetchRef.current) await fetchRef.current;
+            return outcome;
+          }} />
 
         <NextAlarmCard
           alarm={nextAlarm}
@@ -925,7 +911,7 @@ export function SoundRoom({
           </div>
           {tracks.length ? (
             <ul className="deck" aria-label="Play a Sound">
-              {tracks.slice(0, 12).map((track, index) => {
+              {rankedTracks.slice(0, 12).map((track) => {
                 const active = isPlaying && room.playback.trackId === track.id;
                 return (
                   <li key={track.id} className="deck-item">
@@ -935,7 +921,7 @@ export function SoundRoom({
                       onClick={() => play(track)}
                       aria-label={`Play ${track.title} on Hatch`}
                     >
-                      <TrackArtwork track={track} index={index} />
+                      <TrackArtwork track={track} index={tracks.indexOf(track)} />
                       {(active || pendingKey === `play-${track.id}`) && (
                         <span className="card-sticker" aria-hidden="true">
                           {pendingKey === `play-${track.id}`
@@ -964,13 +950,6 @@ export function SoundRoom({
           )}
         </section>
 
-        <footer className="about-note" id="about-room">
-          <h2 tabIndex={-1}>On Your Hatch</h2>
-          <p>
-            Hold the top for about 3&nbsp;seconds to stop. A short tap switches
-            to a saved favorite.
-          </p>
-        </footer>
       </div>
     );
   else if (query.tab === "lights")
@@ -1258,6 +1237,15 @@ export function SoundRoom({
         <div aria-busy={loading}>{screen}</div>
       </main>
 
+      {query.panel === "help" && (
+        <Sheet titleId="help-title" onClose={closePanel} busy={false}>
+          <div className="touch-feedback-header">
+            <h2 id="help-title" tabIndex={-1}>Using Your Hatch</h2>
+            <button className="key key-compact" onClick={closePanel}>Done</button>
+          </div>
+          <p>Hold the top for about 3&nbsp;seconds to stop. A short tap switches to a saved favorite.</p>
+        </Sheet>
+      )}
       {query.panel === "feedback" && (
         <Sheet titleId="feedback-title" onClose={closePanel} busy={false}>
           <div className="touch-feedback-header">
@@ -1363,21 +1351,7 @@ export function SoundRoom({
                 <RefreshIcon size={18} busy={refreshing} />
                 {refreshing ? "Refreshing…" : "Refresh Device Status"}
               </button>
-              <a
-                href="/#about-room"
-                onClick={(event) => {
-                  if (!plainClick(event)) return;
-                  event.preventDefault();
-                  if (!navigate({ tab: "all", panel: null })) return;
-                  window.requestAnimationFrame(() => {
-                    const about = document.getElementById("about-room");
-                    about?.scrollIntoView({ block: "center" });
-                    about?.querySelector<HTMLElement>("h2")?.focus({
-                      preventScroll: true,
-                    });
-                  });
-                }}
-              >
+              <a data-panel-trigger="help" {...navLink({ panel: "help" })}>
                 <CircleHelp size={18} aria-hidden="true" /> Using Your Hatch
               </a>
               {onLogout && (
@@ -1524,21 +1498,11 @@ function NextAlarmCard({
 }) {
   if (!alarm)
     return (
-      <section className="blue-card" aria-labelledby="next-alarm-title">
+      <a className="blue-card new-alarm-card" data-panel-trigger="alarm" {...newLink}>
         <ClockFace hours={7} minutes={0} />
-        <div className="blue-card-text">
-          <h2 id="next-alarm-title">No Alarm Set</h2>
-          <p>Give a morning a time, a sound, and a little light.</p>
-          <a
-            className="pill-link on-blue"
-            data-panel-trigger="alarm"
-            {...newLink}
-          >
-            New Alarm
-            <Plus size={16} aria-hidden="true" />
-          </a>
-        </div>
-      </section>
+        <span>New Alarm</span>
+        <Plus size={20} aria-hidden="true" />
+      </a>
     );
   const ringing = ["starting", "ringing"].includes(alarm.status);
   const instant = ringing ? alarm.lastOccurrence?.scheduledAt || alarm.scheduledAt : alarm.scheduledAt;
