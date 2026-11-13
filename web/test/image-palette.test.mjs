@@ -50,7 +50,7 @@ test('transparent pixels never become the palette, including hidden RGB values',
 
 test('near duplicates merge, tiny noise is rejected, and palette size is a maximum', () => {
   const colors = analyzeImage(...image((x, y, i) => i < 4 ? [0, 255, 0, 255] : [230 + i % 3, 215, 190, 255]));
-  assert.equal(selectImagePalette(colors, 7).length, 1);
+  assert.equal(selectImagePalette(colors, 7).length, 1, JSON.stringify(colors));
 });
 
 test('character protects distinct accents that population-only selection omits', () => {
